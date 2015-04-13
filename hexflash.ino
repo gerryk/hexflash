@@ -1,57 +1,104 @@
-#include <Wire.h>                 //I2C library
-
-const int MAXLINE = 256;
-
-void setup() {
-    Serial.begin(9600);
+//#include <Wire.h>                 //I2C library
+int led=13;
+void setup()
+{
+  Serial.begin(9600);
+  Serial.flush();
+  pinMode(led,OUTPUT);
+  delay(500);
+  quickFlash();
+  delay(500);
+  // digitalWrite (13, HIGH);      //turn on debugging LED
 }
 
-void loop() {
-    String s(readSerialBytes());
-    Serial.println(s);
-    if (s == "START")  {
-        int startAddress = 0;
-        while (s != "END")  {
-        }
-    }
-}
+void loop (){
 
-char* readSerialBytes()  {
-  char data[MAXLINE];
-  static boolean recvInProgress = false;
-  static byte i = 0;
-  boolean newData = false;
-  char startMarker = ';';
-  char endMarker = '\0';
-  char rc;
+  int i=0;
+  char buff[100];
+  String data;
+  boolean reading = false;
+  if(Serial.available()){
+     delay(100);
+     while( Serial.available() && i< 99) {
+        buff[i++] = Serial.read();
+     }
+     buff[i++]='\0';
+  }
 
-  while (Serial.available() > 0 && newData == false) {
-    rc = Serial.read();
-    if (recvInProgress == true) {
-      if (rc != endMarker) {
-        data[i] = rc;
-	i++;
-	if (i >= MAXLINE) {
-	  i = MAXLINE - 1;
-	}
-      }
-    else {
-      data[i] = '\0'; // terminate the string
-      recvInProgress = false;
-      i = 0;
-      newData = true;
+  if(i>0)
+     data = String(buff);
+  //flashNum(data.length());
+  if(data.startsWith(":"))  {
+    quickFlash();
+    int byteCount=data.substring(1,3).toInt();
+    String offset=data.substring(3,6);
+    String recordType=data.substring(6,8);
+    String dataRec=data.substring(8,8+(byteCount*2));
+    char dataBytes[2*byteCount];
+    dataRec.toCharArray(dataBytes,dataRec.length());
+    Serial.print("Bytes: ");
+    Serial.println(byteCount);
+    Serial.print("Offset: ");
+    Serial.println(offset);
+    Serial.print("Rectype: ");
+    Serial.println(recordType);
+    Serial.print("Datarec: ");
+    Serial.println(dataRec);
+    for(int i=0;i<byteCount*2;i+=2)  {
+      Serial.print(dataBytes[i]);
+      Serial.println(dataBytes[i+1]);
+      Serial.print((int)strtol(dataBytes,NULL,8));
+      Serial.print((int)strtol(dataBytes,NULL,8));
+      //Serial.print(hextrans(dataBytes));
+      //Serial.println(hextrans(dataBytes+1));
     }
   }
-  else if (rc == startMarker) {
-    recvInProgress = true;
-  }
 }
+/*
+int hextrans(char b)  {
+  return (int) strtol( &b, NULL, 8);
+}
+*/
+
+
+/*
+
+void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) 
+{
+  Wire.beginTransmission(deviceaddress);
+  Wire.write((int)(eeaddress >> 8));   // MSB
+  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.write(data);
+  Wire.endTransmission();
+  delay(5);
 }
 
-void writeBytes(String s)  {
-    //Wire.write((int)(eeaddress & 0xFF)); // LSB
-    //Wire.endTransmission();
-    //Wire.requestFrom(deviceaddress,1);
-    //if (Wire.available()) rdata = Wire.read();
-    //return rdata;
+*/
+void quickFlash()  {
+  digitalWrite(led, HIGH);
+  delay(30);
+  digitalWrite(led, LOW);
+  delay(30);
+  digitalWrite(led, HIGH);
+  delay(30);
+  digitalWrite(led, LOW);
+  delay(30);
+  digitalWrite(led, HIGH);
+  delay(30);
+  digitalWrite(led, LOW);
+}
+
+void oneFlash()  {
+  digitalWrite(led, HIGH);
+  delay(30);
+  digitalWrite(led, LOW);
+}
+
+void flashNum(int num)  {
+  for(int i=0;i<num;i++)  {
+    digitalWrite(led,HIGH);
+    delay(75);
+    digitalWrite(led,LOW);
+    delay(100);
+  }
 }
