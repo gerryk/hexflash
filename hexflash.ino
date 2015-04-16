@@ -83,6 +83,11 @@ void loop (){
         Serial.print("--");
         Serial.println(readEEPROM(0x50,msbOffset*256+lsbOffset+j));
       }
+    } else if(recordType=="01")  {     // EOF
+    } else if(recordType=="02")  {     // ES Address
+    } else if(recordType=="03")  {     // SS Address
+    } else if(recordType=="04")  {     // Ext. Linear Address  (32 bit addressing - page offset)
+    } else if(recordType=="05")  {     // Start Linear Address (32 bit addressing EIP register)
     }
   }
 }
