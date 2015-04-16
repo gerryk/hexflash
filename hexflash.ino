@@ -1,4 +1,5 @@
-// #define DEBUG 1
+//#define DEBUG 1
+#define disk1 0x50    //Address of 24LC256 eeprom chip
 
 #include <Wire.h>                 //I2C library
 
@@ -6,6 +7,7 @@ int led=13;
 void setup()
 {
   Serial.begin(9600);
+  Wire.begin();  
   Serial.flush();
   pinMode(led,OUTPUT);
 }
@@ -35,9 +37,9 @@ void loop (){
     int byteCount=(int)strtol(buff, NULL, 16);
     String offset=data.substring(3,7);
     data.substring(3,5).toCharArray(buff,3);
-    int msbOffset=(int)strtol(buff, NULL, 16);
+    unsigned int lsbOffset=(int)strtol(buff, NULL, 16);
     data.substring(5,7).toCharArray(buff,3);
-    int lsbOffset=(int)strtol(buff, NULL, 16);
+    unsigned int msbOffset=(int)strtol(buff, NULL, 16);
     String recordType=data.substring(7,9);
     data.substring(9,10+2*byteCount).toCharArray(buff,1+2*byteCount);  
     #ifdef DEBUG
@@ -53,7 +55,7 @@ void loop (){
     Serial.println(buff);
     #endif
     if(recordType=="00")  {
-      for(int i=0;i<byteCount*2;i+=2)  {
+      for(unsigned int i=0;i<byteCount*2;i+=2)  {
         #ifdef DEBUG
         quickFlash();
         Serial.print("Byte: ");
@@ -72,28 +74,18 @@ void loop (){
         Serial.println(decByte);  
         #endif
         #ifndef DEBUG
-        writeEEPROM(0x50,msbOffset*256+lsbOffset+i,decByte);
+        writeEEPROM(0x50,msbOffset*256+lsbOffset+(i/2),decByte);
         #endif
       }
-      for(int j=0;j<16;j++)  {
-        Serial.println("Reading Bytes");
-        Serial.println(i2c_eeprom_read_byte(0x50,msbOffset*256+lsbOffset+j));
+      for(unsigned int j=0;j<16;j++)  {
+        Serial.print("Reading Bytes ");
+        Serial.print((unsigned int)msbOffset*256+lsbOffset+j);
+        Serial.print("--");
+        Serial.println(readEEPROM(0x50,msbOffset*256+lsbOffset+j));
       }
     }
   }
 }
-
-
-byte i2c_eeprom_read_byte( int deviceaddress, unsigned int eeaddress ) {
-    byte rdata = 0xFF;
-    Wire.beginTransmission(deviceaddress);
-    Wire.write((int)(eeaddress >> 8)); // MSB
-    Wire.write((int)(eeaddress & 0xFF)); // LSB
-    Wire.endTransmission();
-    Wire.requestFrom(deviceaddress,1);
-    if (Wire.available()) rdata = Wire.read();
-    return rdata;
-  }
 
 void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) 
 {
@@ -102,10 +94,25 @@ void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data )
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.write(data);
   Wire.endTransmission();
-  oneFlash();
+ 
   delay(5);
 }
-
+ 
+byte readEEPROM(int deviceaddress, unsigned int eeaddress ) 
+{
+  byte rdata = 0xFF;
+ 
+  Wire.beginTransmission(deviceaddress);
+  Wire.write((int)(eeaddress >> 8));   // MSB
+  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.endTransmission();
+ 
+  Wire.requestFrom(deviceaddress,1);
+ 
+  if (Wire.available()) rdata = Wire.read();
+ 
+  return rdata;
+}
 
 void quickFlash()  {
   digitalWrite(led, HIGH);
