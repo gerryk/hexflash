@@ -1,97 +1,61 @@
-//#define DEBUG 1
-#define disk1 0x50    //Address of 24LC256 eeprom chip
-
 #include <Wire.h>                 //I2C library
 
 int led=13;
+String data;
+int ledstate = HIGH;
+char buff[50];
+char ch;
+
 void setup()
 {
   Serial.begin(9600);
   Wire.begin();  
-  Serial.flush();
+  //Serial.flush();
   pinMode(led,OUTPUT);
+  digitalWrite(led, LOW);
+  quickFlash();
 }
 
-void loop (){
-
-  int i=0;
-  char buff[100];
-  String data;
-  boolean reading = false;
-  if(Serial.available()){
-     delay(100);
-     while( Serial.available() && i< 99) {
-        buff[i++] = Serial.read();
+void loop ()  {
+  while (!Serial.available()); //wait for user input
+  //Serial.println(Serial.available());
+  while (Serial.available())  {
+     //Serial.println("Reading...");
+     data = Serial.readStringUntil('\n');
+     if(data.startsWith(":"))  {
+       ledstate = ledstate==HIGH?LOW:HIGH;
+       digitalWrite(led, ledstate);
+       byte decByte;
+       char tmp[3];
+       tmp[2] = '\0';
+       data.substring(1,3).toCharArray(buff, 3);
+       int byteCount=(int)strtol(buff, NULL, 16);
+       String offset=data.substring(3,7);
+       data.substring(3,5).toCharArray(buff,3);
+       unsigned int msbOffset=(int)strtol(buff, NULL, 16);
+       data.substring(5,7).toCharArray(buff,3);
+       unsigned int lsbOffset=(int)strtol(buff, NULL, 16);
+       String recordType=data.substring(7,9);
+       data.substring(9,10+2*byteCount).toCharArray(buff,1+2*byteCount);  
+       data = ""; // Clear recieved buffer
+       if(recordType=="00")  {
+         for(unsigned int i=0;i<byteCount*2;i+=2)  {
+           tmp[0] = buff[i];
+           tmp[1] = buff[i+1];
+           decByte=strtol(tmp,0,16);
+           writeEEPROM(0x50,msbOffset*256+lsbOffset+(i/2),decByte);
+         }
+         Serial.println("OK");
+       } else if(recordType=="01")  {     // EOF
+       } else if(recordType=="02")  {     // ES Address
+       } else if(recordType=="03")  {     // SS Address
+       } else if(recordType=="04")  {     // Ext. Linear Address  (32 bit addressing - page offset)
+       } else if(recordType=="05")  {     // Start Linear Address (32 bit addressing EIP register)
+       }
      }
-     buff[i++]='\0';
   }
-
-  if(i>0)
-     data = String(buff);
-  if(data.startsWith(":"))  {
-    byte decByte;
-    char tmp[3];
-    tmp[2] = '\0';
-    quickFlash();
-    data.substring(1,3).toCharArray(buff, 3);
-    int byteCount=(int)strtol(buff, NULL, 16);
-    String offset=data.substring(3,7);
-    data.substring(3,5).toCharArray(buff,3);
-    unsigned int lsbOffset=(int)strtol(buff, NULL, 16);
-    data.substring(5,7).toCharArray(buff,3);
-    unsigned int msbOffset=(int)strtol(buff, NULL, 16);
-    String recordType=data.substring(7,9);
-    data.substring(9,10+2*byteCount).toCharArray(buff,1+2*byteCount);  
-    #ifdef DEBUG
-    Serial.print("Bytes: ");
-    Serial.println(byteCount);
-    Serial.print("HexOffset: ");
-    Serial.println(offset);
-    Serial.print("DecOffset: ");
-    Serial.println(msbOffset*256+lsbOffset);
-    Serial.print("Rectype: ");
-    Serial.println(recordType);
-    Serial.print("Datarec: ");
-    Serial.println(buff);
-    #endif
-    if(recordType=="00")  {
-      for(unsigned int i=0;i<byteCount*2;i+=2)  {
-        #ifdef DEBUG
-        quickFlash();
-        Serial.print("Byte: ");
-        Serial.print(i/2);      
-        Serial.print(" : ");
-        Serial.print(buff[i]);
-        Serial.print(buff[i+1]);
-        #endif
-        tmp[0] = buff[i];
-        tmp[1] = buff[i+1];
-        decByte=strtol(tmp,0,16);
-        #ifdef DEBUG
-        Serial.print(" Offset: ");
-        Serial.print(msbOffset*256+lsbOffset+i/2);      
-        Serial.print(" :: ");
-        Serial.println(decByte);  
-        #endif
-        #ifndef DEBUG
-        writeEEPROM(0x50,msbOffset*256+lsbOffset+(i/2),decByte);
-        #endif
-      }
-      for(unsigned int j=0;j<16;j++)  {
-        Serial.print("Reading Bytes ");
-        Serial.print((unsigned int)msbOffset*256+lsbOffset+j);
-        Serial.print("--");
-        Serial.println(readEEPROM(0x50,msbOffset*256+lsbOffset+j));
-      }
-    } else if(recordType=="01")  {     // EOF
-    } else if(recordType=="02")  {     // ES Address
-    } else if(recordType=="03")  {     // SS Address
-    } else if(recordType=="04")  {     // Ext. Linear Address  (32 bit addressing - page offset)
-    } else if(recordType=="05")  {     // Start Linear Address (32 bit addressing EIP register)
-    }
-  }
-}
-
+} 
+ 
 void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) 
 {
   Wire.beginTransmission(deviceaddress);
@@ -99,8 +63,8 @@ void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data )
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.write(data);
   Wire.endTransmission();
- 
-  delay(5);
+  //delay(5);
+  oneFlash();
 }
  
 byte readEEPROM(int deviceaddress, unsigned int eeaddress ) 
@@ -111,39 +75,29 @@ byte readEEPROM(int deviceaddress, unsigned int eeaddress )
   Wire.write((int)(eeaddress >> 8));   // MSB
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.endTransmission();
- 
   Wire.requestFrom(deviceaddress,1);
- 
   if (Wire.available()) rdata = Wire.read();
- 
   return rdata;
 }
 
 void quickFlash()  {
   digitalWrite(led, HIGH);
-  delay(30);
+  delay(10);
   digitalWrite(led, LOW);
-  delay(30);
+  delay(10);
   digitalWrite(led, HIGH);
-  delay(30);
+  delay(10);
   digitalWrite(led, LOW);
-  delay(30);
+  delay(10);
   digitalWrite(led, HIGH);
-  delay(30);
+  delay(10);
   digitalWrite(led, LOW);
 }
 
 void oneFlash()  {
   digitalWrite(led, HIGH);
-  delay(30);
+  delay(5);
   digitalWrite(led, LOW);
+  delay(5);
 }
 
-void flashNum(int num)  {
-  for(int i=0;i<num;i++)  {
-    digitalWrite(led,HIGH);
-    delay(75);
-    digitalWrite(led,LOW);
-    delay(100);
-  }
-}
