@@ -10,21 +10,18 @@ void setup()
 {
   Serial.begin(9600);
   Wire.begin();  
-  //Serial.flush();
+  Serial.flush();
   pinMode(led,OUTPUT);
   digitalWrite(led, LOW);
-  quickFlash();
 }
 
 void loop ()  {
-  while (!Serial.available()); //wait for user input
-  //Serial.println(Serial.available());
+  while (!Serial.available()); // spin while we wait for bytes
   while (Serial.available())  {
-     //Serial.println("Reading...");
      data = Serial.readStringUntil('\n');
      if(data.startsWith(":"))  {
        ledstate = ledstate==HIGH?LOW:HIGH;
-       digitalWrite(led, ledstate);
+       digitalWrite(led, ledstate);  // flash the debug light for each line we read 
        byte decByte;
        char tmp[3];
        tmp[2] = '\0';
@@ -63,8 +60,7 @@ void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data )
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.write(data);
   Wire.endTransmission();
-  //delay(5);
-  oneFlash();
+  delay(5);
 }
  
 byte readEEPROM(int deviceaddress, unsigned int eeaddress ) 
@@ -80,24 +76,4 @@ byte readEEPROM(int deviceaddress, unsigned int eeaddress )
   return rdata;
 }
 
-void quickFlash()  {
-  digitalWrite(led, HIGH);
-  delay(10);
-  digitalWrite(led, LOW);
-  delay(10);
-  digitalWrite(led, HIGH);
-  delay(10);
-  digitalWrite(led, LOW);
-  delay(10);
-  digitalWrite(led, HIGH);
-  delay(10);
-  digitalWrite(led, LOW);
-}
-
-void oneFlash()  {
-  digitalWrite(led, HIGH);
-  delay(5);
-  digitalWrite(led, LOW);
-  delay(5);
-}
 

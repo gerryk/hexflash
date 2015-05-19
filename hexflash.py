@@ -9,12 +9,10 @@ def sendhex(hexfile):
         print "Could not open Serial Port"
     with open(hexfile) as f:
         for data in f:
-            # data = "<" + data + ">"
-            #ser.write(data.encode())
             ser.write(data)
             print repr(data)
             sleep(1)
-            print repr(ser.readline())
+            print "Bytes received: " + repr(ser.readline())
 
 def main():
     import argparse
